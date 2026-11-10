@@ -4,6 +4,10 @@ import helmet from "helmet";
 import { env } from "./config/env.js";
 import { healthRouter } from "./modules/health/health.routes.js";
 import { authRouter } from "./modules/auth/auth.routes.js";
+import { restaurantsRouter } from "./modules/restaurants/restaurants.routes.js";
+import { employeesRouter } from "./modules/employees/employees.routes.js";
+import { structureRouter } from "./modules/structure/structure.routes.js";
+import { tablesRouter } from "./modules/tables/tables.routes.js";
 import { errorHandler } from "./middlewares/errorHandler.js";
 
 export const app = express();
@@ -14,6 +18,10 @@ app.use(express.json({ limit: "100kb" }));
 
 app.use("/api/v1/health", healthRouter);
 app.use("/api/v1/auth", authRouter);
+app.use("/api/v1/restaurants", restaurantsRouter);
+app.use("/api/v1", employeesRouter);
+app.use("/api/v1", structureRouter);
+app.use("/api/v1", tablesRouter);
 
 app.use((_req, res) => {
   res.status(404).json({ error: { code: "NOT_FOUND", message: "Ruta no encontrada" } });
