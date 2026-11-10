@@ -42,3 +42,19 @@ export function horaAMinutos(hora: string): number {
   const [h, m] = hora.split(":").map(Number);
   return h * 60 + m;
 }
+
+// Fecha local (YYYY-MM-DD) y minutos desde medianoche de un instante en una zona horaria
+export function ahoraLocal(tz: string, instante: Date = new Date()): { fecha: string; minutos: number } {
+  const f = new Intl.DateTimeFormat("en-US", {
+    timeZone: tz,
+    hourCycle: "h23",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+  const p: Record<string, string> = {};
+  for (const x of f.formatToParts(instante)) p[x.type] = x.value;
+  return { fecha: `${p.year}-${p.month}-${p.day}`, minutos: Number(p.hour) * 60 + Number(p.minute) };
+}
