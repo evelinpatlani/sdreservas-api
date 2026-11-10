@@ -10,6 +10,7 @@ import { structureRouter } from "./modules/structure/structure.routes.js";
 import { tablesRouter } from "./modules/tables/tables.routes.js";
 import { methodsRouter } from "./modules/reservations/methods.routes.js";
 import { availabilityRouter } from "./modules/reservations/availability.routes.js";
+import { reservationsRouter } from "./modules/reservations/reservations.routes.js";
 import { errorHandler } from "./middlewares/errorHandler.js";
 
 export const app = express();
@@ -26,6 +27,7 @@ app.use("/api/v1", structureRouter);
 app.use("/api/v1", tablesRouter);
 app.use("/api/v1", methodsRouter);
 app.use("/api/v1", availabilityRouter);
+app.use("/api/v1", reservationsRouter);
 
 app.use((_req, res) => {
   res.status(404).json({ error: { code: "NOT_FOUND", message: "Ruta no encontrada" } });
