@@ -1,0 +1,302 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Rol {
+  CLIENTE
+  ADMIN
+  RECEPCIONISTA
+  MESERO
+}
+
+enum EstadoMesa {
+  AVAILABLE
+  RESERVED
+  OCCUPIED
+  OUT_OF_SERVICE
+}
+
+enum EstadoReserva {
+  PENDING_PAYMENT
+  UPCOMING
+  CHECKED_IN
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+
+enum OrigenReserva {
+  ONLINE
+  PRESENCIAL
+}
+
+enum EstadoPago {
+  PENDING
+  SUCCEEDED
+  FAILED
+  REFUNDED
+}
+
+enum TipoMovimientoReputacion {
+  NO_SHOW
+  RECOVERY
+  AJUSTE
+}
+
+model Usuario {
+  id           String   @id @default(uuid()) @db.Uuid
+  email        String   @unique
+  passwordHash String
+  nombre       String
+  rol          Rol
+  activo       Boolean  @default(true)
+  reputacion   Decimal  @default(5.00) @db.Decimal(3, 2)
+  rachaPagadas Int      @default(0)
+  createdAt    DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt    DateTime @updatedAt @db.Timestamptz(3)
+
+  restaurantesAdministrados Restaurante[]          @relation("AdminRestaurante")
+  asignaciones              RestauranteEmpleado[]
+  reservas                  Reserva[]              @relation("ClienteReserva")
+  reservasCreadas           Reserva[]              @relation("CreadaPor")
+  reservasCanceladas        Reserva[]              @relation("CanceladaPor")
+  movimientosReputacion     MovimientoReputacion[]
+  auditorias                AuditoriaOperacion[]
+
+  @@map("usuario")
+}
+
+model Restaurante {
+  id          String   @id @default(uuid()) @db.Uuid
+  adminId     String   @db.Uuid
+  nombre      String
+  tipoCocina  String
+  ubicacion   String
+  rfc         String
+  limiteMesas Int
+  zonaHoraria String   @default("America/Mexico_City")
+  activo      Boolean  @default(true)
+  createdAt   DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime @updatedAt @db.Timestamptz(3)
+
+  admin       Usuario                @relation("AdminRestaurante", fields: [adminId], references: [id])
+  empleados   RestauranteEmpleado[]
+  pisos       Piso[]
+  mesas       Mesa[]
+  horarios    HorarioRestaurante[]
+  modalidades RestauranteModalidad[]
+  reservas    Reserva[]
+  auditorias  AuditoriaOperacion[]
+
+  @@index([adminId])
+  @@map("restaurante")
+}
+
+model RestauranteEmpleado {
+  id            String   @id @default(uuid()) @db.Uuid
+  restauranteId String   @db.Uuid
+  usuarioId     String   @db.Uuid
+  createdAt     DateTime @default(now()) @db.Timestamptz(3)
+
+  restaurante Restaurante @relation(fields: [restauranteId], references: [id], onDelete: Cascade)
+  usuario     Usuario     @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  @@unique([restauranteId, usuarioId])
+  @@map("restaurante_empleado")
+}
+model Piso {
+  id            String @id @default(uuid()) @db.Uuid
+  restauranteId String @db.Uuid
+  nombre        String
+  orden         Int    @default(0)
+
+  restaurante Restaurante @relation(fields: [restauranteId], references: [id], onDelete: Cascade)
+  areas       Area[]
+
+  @@unique([restauranteId, nombre])
+  @@map("piso")
+}
+
+model Area {
+  id     String @id @default(uuid()) @db.Uuid
+  pisoId String @db.Uuid
+  nombre String
+
+  piso  Piso   @relation(fields: [pisoId], references: [id], onDelete: Cascade)
+  mesas Mesa[]
+
+  @@unique([pisoId, nombre])
+  @@map("area")
+}
+
+model Mesa {
+  id            String     @id @default(uuid()) @db.Uuid
+  restauranteId String     @db.Uuid
+  areaId        String     @db.Uuid
+  etiqueta      String
+  capacidad     Int
+  forma         String     @default("cuadrada")
+  estado        EstadoMesa @default(AVAILABLE)
+  createdAt     DateTime   @default(now()) @db.Timestamptz(3)
+  updatedAt     DateTime   @updatedAt @db.Timestamptz(3)
+
+  restaurante Restaurante   @relation(fields: [restauranteId], references: [id], onDelete: Cascade)
+  area        Area          @relation(fields: [areaId], references: [id])
+  reservas    ReservaMesa[]
+
+  @@unique([restauranteId, etiqueta])
+  @@index([restauranteId])
+  @@map("mesa")
+}
+
+model HorarioRestaurante {
+  id            String @id @default(uuid()) @db.Uuid
+  restauranteId String @db.Uuid
+  diaSemana     Int
+  aperturaMin   Int
+  cierreMin     Int
+
+  restaurante Restaurante @relation(fields: [restauranteId], references: [id], onDelete: Cascade)
+
+  @@unique([restauranteId, diaSemana])
+  @@map("horario_restaurante")
+}
+
+model ModalidadReserva {
+  id          String  @id @default(uuid()) @db.Uuid
+  codigo      String  @unique
+  nombre      String
+  esPagada    Boolean
+  descripcion String?
+
+  configuraciones RestauranteModalidad[]
+  reservas        Reserva[]
+
+  @@map("modalidad_reserva")
+}
+
+model RestauranteModalidad {
+  id            String   @id @default(uuid()) @db.Uuid
+  restauranteId String   @db.Uuid
+  modalidadId   String   @db.Uuid
+  activa        Boolean  @default(false)
+  importe       Decimal? @db.Decimal(10, 2)
+
+  restaurante Restaurante      @relation(fields: [restauranteId], references: [id], onDelete: Cascade)
+  modalidad   ModalidadReserva @relation(fields: [modalidadId], references: [id])
+
+  @@unique([restauranteId, modalidadId])
+  @@map("restaurante_modalidad")
+}
+
+model Reserva {
+  id                String        @id @default(uuid()) @db.Uuid
+  restauranteId     String        @db.Uuid
+  clienteId         String?       @db.Uuid
+  nombreInvitado    String?
+  personas          Int
+  origen            OrigenReserva
+  modalidadId       String?       @db.Uuid
+  inicio            DateTime      @db.Timestamptz(3)
+  fin               DateTime      @db.Timestamptz(3)
+  duracionMin       Int
+  estado            EstadoReserva
+  importeAplicado   Decimal       @default(0) @db.Decimal(10, 2)
+  condiciones       Json?
+  pagoExpiraEn      DateTime?     @db.Timestamptz(3)
+  creadaPorId       String        @db.Uuid
+  canceladaPorId    String?       @db.Uuid
+  canceladaEn       DateTime?     @db.Timestamptz(3)
+  motivoCancelacion String?
+  politicaAplicada  String?
+  createdAt         DateTime      @default(now()) @db.Timestamptz(3)
+  updatedAt         DateTime      @updatedAt @db.Timestamptz(3)
+
+  restaurante  Restaurante           @relation(fields: [restauranteId], references: [id])
+  cliente      Usuario?              @relation("ClienteReserva", fields: [clienteId], references: [id])
+  creadaPor    Usuario               @relation("CreadaPor", fields: [creadaPorId], references: [id])
+  canceladaPor Usuario?              @relation("CanceladaPor", fields: [canceladaPorId], references: [id])
+  modalidad    ModalidadReserva?     @relation(fields: [modalidadId], references: [id])
+  mesas        ReservaMesa[]
+  pagos        PagoReserva[]
+  movimientos  MovimientoReputacion[]
+
+  @@index([restauranteId, inicio])
+  @@index([clienteId, estado])
+  @@map("reserva")
+}
+
+model ReservaMesa {
+  id        String   @id @default(uuid()) @db.Uuid
+  reservaId String   @db.Uuid
+  mesaId    String   @db.Uuid
+  inicio    DateTime @db.Timestamptz(3)
+  fin       DateTime @db.Timestamptz(3)
+  activa    Boolean  @default(true)
+
+  reserva Reserva @relation(fields: [reservaId], references: [id], onDelete: Cascade)
+  mesa    Mesa    @relation(fields: [mesaId], references: [id])
+
+  @@unique([reservaId, mesaId])
+  @@index([mesaId])
+  @@map("reserva_mesa")
+}
+
+model PagoReserva {
+  id                  String     @id @default(uuid()) @db.Uuid
+  reservaId           String     @db.Uuid
+  monto               Decimal    @db.Decimal(10, 2)
+  moneda              String     @default("MXN")
+  estado              EstadoPago
+  metodoSimulado      String
+  referenciaOperacion String     @unique
+  claveIdempotencia   String?    @unique
+  montoReembolsado    Decimal    @default(0) @db.Decimal(10, 2)
+  createdAt           DateTime   @default(now()) @db.Timestamptz(3)
+  updatedAt           DateTime   @updatedAt @db.Timestamptz(3)
+
+  reserva Reserva @relation(fields: [reservaId], references: [id])
+
+  @@index([reservaId])
+  @@map("pago_reserva")
+}
+
+model MovimientoReputacion {
+  id                String                   @id @default(uuid()) @db.Uuid
+  usuarioId         String                   @db.Uuid
+  reservaId         String?                  @db.Uuid
+  tipo              TipoMovimientoReputacion
+  delta             Decimal                  @db.Decimal(3, 2)
+  reputacionAntes   Decimal                  @db.Decimal(3, 2)
+  reputacionDespues Decimal                  @db.Decimal(3, 2)
+  createdAt         DateTime                 @default(now()) @db.Timestamptz(3)
+
+  usuario Usuario  @relation(fields: [usuarioId], references: [id])
+  reserva Reserva? @relation(fields: [reservaId], references: [id])
+
+  @@unique([reservaId, tipo])
+  @@index([usuarioId, createdAt])
+  @@map("movimiento_reputacion")
+}
+
+model AuditoriaOperacion {
+  id            String   @id @default(uuid()) @db.Uuid
+  actorId       String   @db.Uuid
+  restauranteId String?  @db.Uuid
+  accion        String
+  entidad       String
+  entidadId     String?
+  detalle       Json?
+  createdAt     DateTime @default(now()) @db.Timestamptz(3)
+
+  actor       Usuario      @relation(fields: [actorId], references: [id])
+  restaurante Restaurante? @relation(fields: [restauranteId], references: [id])
+
+  @@index([restauranteId, createdAt])
+  @@map("auditoria_operacion")
+}
