@@ -5,7 +5,6 @@ Guía rápida para quien consume la API. Describe qué ruta usar, qué enviar y 
 - **URL base (producción):** `https://sdreservas-api-1.onrender.com/api/v1`
 - **URL base (local):** `http://localhost:3000/api/v1`
 - **Formato:** JSON en peticiones y respuestas (`Content-Type: application/json`).
-- **Nota:** en el plan gratuito de Render la primera petición tras un rato de inactividad tarda entre 30 y 50 segundos.
 
 ## Contenido
 
